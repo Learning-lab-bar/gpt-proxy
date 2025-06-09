@@ -6,15 +6,13 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# קריאת מפתח ה-API מהסביבה
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.json
     try:
-        # הדפסת הנתונים שהתקבלו לצורך דיבוג
-        print("📥 Received data:", data)
+        print("📥 Got data:", data, flush=True)
 
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
@@ -22,12 +20,12 @@ def chat():
         )
 
         reply = response.choices[0].message.content
-        print("📤 GPT reply:", reply)
+        print("📤 GPT reply:", reply, flush=True)
 
         return jsonify({"reply": reply})
 
     except Exception as e:
-        print("❌ Error:", str(e))
+        print("❌ Error:", str(e), flush=True)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
