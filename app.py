@@ -1,7 +1,8 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, Response
 from flask_cors import CORS
 import openai
 import os
+import json
 import traceback
 
 app = Flask(__name__)
@@ -19,20 +20,17 @@ def chat():
             model="gpt-3.5-turbo",
             messages=data.get("messages", [])
         )
-
         raw_reply = response.choices[0].message.content
-        print("🧾 Raw reply from GPT:", repr(raw_reply), flush=True)
-
-        # הסרת גרשיים מיותרים אם יש
         reply = raw_reply.strip('"')
-        print("✅ Cleaned reply:", reply, flush=True)
 
-        return jsonify({"reply": reply})
+        # שימוש ב-ensure_ascii=False כדי לא להמיר עברית ל-\u05e9
+        payload = json.dumps({"reply": reply}, ensure_ascii=False)
+        return Response(payload, mimetype="application/json")
 
     except Exception as e:
-        print("❌ Error:", str(e), flush=True)
         traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        error_msg = json.dumps({"error": str(e)}, ensure_ascii=False)
+        return Response(error_msg, status=500, mimetype="application/json")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
