@@ -19,13 +19,18 @@ def chat():
             model="gpt-3.5-turbo",
             messages=data.get("messages", [])
         )
-        reply = response.choices[0].message.content
-        print("✅ Reply:", reply, flush=True)
+
+        raw_reply = response.choices[0].message.content
+        print("🧾 Raw reply from GPT:", repr(raw_reply), flush=True)
+
+        # הסרת גרשיים מיותרים אם יש
+        reply = raw_reply.strip('"')
+        print("✅ Cleaned reply:", reply, flush=True)
+
         return jsonify({"reply": reply})
 
     except Exception as e:
         print("❌ Error:", str(e), flush=True)
-        print("🔍 Traceback:")
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
