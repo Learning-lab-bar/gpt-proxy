@@ -18,7 +18,7 @@ def chat():
     try:
         data = request.json
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o",
             messages=data.get("messages", [])
         )
         reply = response.choices[0].message.content.strip('"')
