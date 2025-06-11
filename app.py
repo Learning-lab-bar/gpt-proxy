@@ -1,29 +1,27 @@
 from flask import Flask, request, Response
 from flask_cors import CORS
-import openai
-import os
-import json
-import traceback
+import openai, os, json, traceback
 
 app = Flask(__name__)
-CORS(app)
+
+# פתרון CORS מלא שמאפשר גם preflight
+CORS(app, origins="*", allow_headers="*", methods=["POST", "OPTIONS"])
 
 client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-@app.route("/chat", methods=["POST"])
+@app.route("/chat", methods=["POST", "OPTIONS"])
 def chat():
-    data = request.json
-    print("📥 Got data:", data, flush=True)
+    if request.method == "OPTIONS":
+        # תשובה ל־preflight
+        return Response(status=204)
 
     try:
+        data = request.json
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=data.get("messages", [])
         )
-        raw_reply = response.choices[0].message.content
-        reply = raw_reply.strip('"')
-
-        # שימוש ב-ensure_ascii=False כדי לא להמיר עברית ל-\u05e9
+        reply = response.choices[0].message.content.strip('"')
         payload = json.dumps({"reply": reply}, ensure_ascii=False)
         return Response(payload, mimetype="application/json")
 
