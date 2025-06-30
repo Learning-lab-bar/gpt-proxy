@@ -3,3 +3,6 @@ flask-cors
 openai>=1.0.0
 requests
 gunicorn
+google-cloud-firestore
+firebase-admin
+
