@@ -7,11 +7,11 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# הגדרת לקוח OpenAI (API Key מהסביבה)
+# התחברות ל־OpenAI דרך גרסה חדשה (>=1.0.0)
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 
-# כתובת Google Apps Script שלך לשמירת השיחה
+# כתובת Google Apps Script שלך לשמירת קבצי השיחה
 GAS_URL = "https://script.google.com/macros/s/AKfycbyvJ8ZNLPqKn6zCNeuVuNrTXJRX7J5OehJWZxdOjVpgVEVXareVEJQBTf4KyWEdFBSaow/exec"
 
 @app.route("/")
@@ -38,8 +38,19 @@ def chat():
 @app.route("/save-chat", methods=["POST"])
 def save_chat():
     try:
-        response = requests.post(GAS_URL, json=request.json)
+        # שולחים בצורה ש-GAS תומך בה (form data, לא JSON)
+        payload = {
+            "participantId": request.json.get("participantId", "unknown"),
+            "text": request.json.get("text", "")
+        }
+
+        response = requests.post(
+            GAS_URL,
+            data=payload  # 🟢 חשוב! לא json=payload
+        )
+
         return response.text, response.status_code
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
