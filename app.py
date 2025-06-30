@@ -1,42 +1,49 @@
-import os
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import openai
 import firebase_admin
 from firebase_admin import credentials, firestore
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import os
+import datetime
 
-# אתחול Flask
 app = Flask(__name__)
 CORS(app)
 
-# קובץ מפתח של Firebase (שמרת אותו קודם)
-cred = credentials.Certificate("serviceAccountKey.json")  # ודאי שהוא בקובץ זהה לשם
-firebase_admin.initialize_app(cred)
+# הגדרת מפתח OpenAI דרך משתנה סביבה
+openai.api_key = os.environ.get("OPENAI_API_KEY")
+
+# אתחול Firebase עם קובץ השירות מה־Secret File
+if not firebase_admin._apps:
+    cred = credentials.Certificate("/etc/secrets/serviceAccountKey.json")
+    firebase_admin.initialize_app(cred)
+
 db = firestore.client()
 
-# הגדרת הנתיב לשיחה
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
-        data = request.json
+        data = request.get_json()
         messages = data.get("messages", [])
         participant_id = data.get("participantId", "unknown")
 
-        # שליחת הודעה ל־OpenAI
+        # שליחת ההודעה ל־GPT
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages
         )
+
         reply = response.choices[0].message["content"]
 
-        # שמירת ההודעה במסד הנתונים Firestore
-        doc_ref = db.collection("chat_logs").document(participant_id)
-        doc_ref.set({
+        # שמירת השיחה במסד הנתונים
+        log_entry = {
             "participantId": participant_id,
-            "chatLog": messages + [{"role": "assistant", "content": reply}],
-        }, merge=True)
+            "messages": messages,
+            "reply": reply,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+
+        db.collection("chat_logs").add(log_entry)
 
         return jsonify({"reply": reply})
-
     except Exception as e:
         return jsonify({"error": str(e)}), 500
