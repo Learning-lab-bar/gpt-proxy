@@ -7,13 +7,11 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# ✅ מפתח API מהסביבה
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-# ✅ מודל נבחר (אפשר לשנות ב־Render > Environment Variables)
+# הגדרת לקוח OpenAI (API Key מהסביבה)
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
 
-# כתובת Apps Script לשמירת השיחה
+# כתובת Google Apps Script שלך לשמירת השיחה
 GAS_URL = "https://script.google.com/macros/s/AKfycbyvJ8ZNLPqKn6zCNeuVuNrTXJRX7J5OehJWZxdOjVpgVEVXareVEJQBTf4KyWEdFBSaow/exec"
 
 @app.route("/")
@@ -26,7 +24,7 @@ def chat():
         data = request.json
         messages = data.get("messages", [])
 
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages
         )
