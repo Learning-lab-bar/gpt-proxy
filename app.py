@@ -6,11 +6,10 @@ from firebase_admin import credentials, firestore
 import os
 import datetime
 
-# אתחול Flask
 app = Flask(__name__)
 CORS(app)
 
-# התחברות ל־OpenAI API החדש
+# התחברות ל־OpenAI API
 client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 model_name = os.environ.get("OPENAI_MODEL", "gpt-3.5-turbo")
 
@@ -28,36 +27,49 @@ def chat():
         participant_id = data.get("participantId", "unknown")
         user_messages = data.get("messages", [])
 
-        # שליפת השיחה המצטברת ממסד הנתונים
+        if not user_messages:
+            return jsonify({"error": "No user message provided"}), 400
+
+        user_message = user_messages[-1]
+
+        # שליפת שיחה קודמת
         doc_ref = db.collection("chat_logs").document(participant_id)
         doc = doc_ref.get()
+        previous_messages = doc.to_dict().get("messages", []) if doc.exists else []
 
-        full_messages = []
-        if doc.exists:
-            full_messages = doc.to_dict().get("messages", [])
+        full_conversation = previous_messages + [user_message]
 
-        # הוספת ההודעה החדשה לרשימת ההודעות
-        full_messages.extend(user_messages)
-
-        # קריאה ל־OpenAI
+        # שליחה ל־GPT
         response = client.chat.completions.create(
             model=model_name,
-            messages=full_messages
+            messages=full_conversation
         )
 
         reply = response.choices[0].message.content
 
-        # הוספת התשובה להיסטוריית השיחה
-        full_messages.append({
-            "role": "assistant",
-            "content": reply
-        })
+        # יצירת רשומות עם timestamp לכל הודעה
+        timestamp = datetime.datetime.utcnow().isoformat()
+        new_entries = [
+            {
+                "role": user_message["role"],
+                "content": user_message["content"],
+                "timestamp": timestamp
+            },
+            {
+                "role": "assistant",
+                "content": reply,
+                "timestamp": timestamp
+            }
+        ]
 
-        # עדכון / יצירת המסמך במסד הנתונים
+        # עדכון/יצירת מסמך
         doc_ref.set({
             "participantId": participant_id,
-            "messages": full_messages,
-            "timestamp": datetime.datetime.utcnow().isoformat()
+            "lastUpdated": timestamp
+        }, merge=True)
+
+        doc_ref.update({
+            "messages": firestore.ArrayUnion(new_entries)
         })
 
         return jsonify({"reply": reply})
