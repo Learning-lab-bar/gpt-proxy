@@ -1,58 +1,42 @@
+import os
+import openai
+import firebase_admin
+from firebase_admin import credentials, firestore
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import requests
-import openai
-import os
 
+# אתחול Flask
 app = Flask(__name__)
 CORS(app)
 
-# התחברות ל־OpenAI דרך גרסה חדשה (>=1.0.0)
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+# קובץ מפתח של Firebase (שמרת אותו קודם)
+cred = credentials.Certificate("serviceAccountKey.json")  # ודאי שהוא בקובץ זהה לשם
+firebase_admin.initialize_app(cred)
+db = firestore.client()
 
-# כתובת Google Apps Script שלך לשמירת קבצי השיחה
-GAS_URL = "https://script.google.com/macros/s/AKfycbyvJ8ZNLPqKn6zCNeuVuNrTXJRX7J5OehJWZxdOjVpgVEVXareVEJQBTf4KyWEdFBSaow/exec"
-
-@app.route("/")
-def home():
-    return f"✅ GPT Proxy is running using model: {OPENAI_MODEL}"
-
+# הגדרת הנתיב לשיחה
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
         data = request.json
         messages = data.get("messages", [])
+        participant_id = data.get("participantId", "unknown")
 
-        response = client.chat.completions.create(
-            model=OPENAI_MODEL,
+        # שליחת הודעה ל־OpenAI
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
             messages=messages
         )
+        reply = response.choices[0].message["content"]
 
-        reply = response.choices[0].message.content.strip()
+        # שמירת ההודעה במסד הנתונים Firestore
+        doc_ref = db.collection("chat_logs").document(participant_id)
+        doc_ref.set({
+            "participantId": participant_id,
+            "chatLog": messages + [{"role": "assistant", "content": reply}],
+        }, merge=True)
+
         return jsonify({"reply": reply})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-@app.route("/save-chat", methods=["POST"])
-def save_chat():
-    try:
-        # שולחים בצורה ש-GAS תומך בה (form data, לא JSON)
-        payload = {
-            "participantId": request.json.get("participantId", "unknown"),
-            "text": request.json.get("text", "")
-        }
-
-        response = requests.post(
-            GAS_URL,
-            data=payload  # 🟢 חשוב! לא json=payload
-        )
-
-        return response.text, response.status_code
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
