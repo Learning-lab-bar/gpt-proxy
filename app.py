@@ -20,7 +20,6 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-
 # ---------- נתיב לשיחות GPT ----------
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -87,7 +86,7 @@ def save_memory():
         data = request.get_json()
         response_id = data.get("responseId")
         total_hidden_time = data.get("totalHiddenTime")
-        tab_log = data.get("TabVisibilityLog")  # מגיע מה-JavaScript
+        tab_log = data.get("TabVisibilityLog")
 
         if not response_id:
             return jsonify({"error": "Missing responseId"}), 400
