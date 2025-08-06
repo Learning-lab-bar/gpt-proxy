@@ -20,6 +20,8 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
+
+# ---------- נתיב לשיחות GPT ----------
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
@@ -76,6 +78,32 @@ def chat():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ---------- נתיב לשמירת מעקב טאבים ----------
+@app.route("/save-memory", methods=["POST"])
+def save_memory():
+    try:
+        data = request.get_json()
+        response_id = data.get("responseId")
+        total_hidden_time = data.get("totalHiddenTime")
+        tab_log = data.get("TabVisibilityLog")  # מגיע מה-JavaScript
+
+        if not response_id:
+            return jsonify({"error": "Missing responseId"}), 400
+
+        doc_ref = db.collection("memory_logs").document(response_id)
+
+        doc_ref.set({
+            "TotalHiddenTime": total_hidden_time,
+            "TabVisibilityLog": firestore.ArrayUnion(tab_log or [])
+        }, merge=True)
+
+        return jsonify({"status": "success"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # הרצת השרת
 if __name__ == "__main__":
